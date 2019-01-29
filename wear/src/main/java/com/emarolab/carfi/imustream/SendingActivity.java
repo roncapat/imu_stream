@@ -22,25 +22,22 @@ import java.util.Vector;
 
 public class SendingActivity extends WearableActivity implements SensorEventListener {
 
-    private float[] last_acc = new float[3], last_gyro = new float[3];
-    private long last_acc_time = 0;
-    private long last_gyro_time = 0;
+    private float[] last_acc = new float[3], last_filtered_acc = new float[3], last_gyro = new float[3];
+    private long last_acc_time = 0, last_filtered_acc_time = 0, last_gyro_time = 0;
 
-    private long[] timestamp_sent = new long[]{0, 0};
+    private long[] timestamp_sent = new long[]{0, 0, 0};
 
-    private vectorMessage accMsg, gyroMsg;
-
-    private TextView dataAcc, dataGyro;
+    private vectorMessage accMsg, accFilteredMsg, gyroMsg;
+    private TextView dataAcc, dataFilteredAcc, dataGyro;
     private SensorManager senSensorManager;
-    private Sensor senAccelerometer, senGyroscope;
+    private Sensor senAccelerometer, senFilteredAccelerometer, senGyroscope;
 
     private String deviceName;
 
     private float precision = 1000;
 
     private boolean sensorUpdate = true;
-    private boolean accFlag = false;
-    private boolean gyroFlag = false;
+    private boolean accFlag = false, accFilteredFlag = false, gyroFlag = false;
 
     private GoogleApiClient mGoogleApiClient;
 
@@ -58,6 +55,7 @@ public class SendingActivity extends WearableActivity implements SensorEventList
 
         //Initialize accelerometer and gyroscope data containers
         accMsg = new vectorMessage(1);
+        accFilteredMsg = new vectorMessage(1);
         gyroMsg = new vectorMessage(1);
 
         TextView TextDevName;
@@ -65,6 +63,7 @@ public class SendingActivity extends WearableActivity implements SensorEventList
         TextDevName.setText(deviceName);
 
         accMsg.setTopics((deviceName + "/accelerometer"),(deviceName + "/time_accelerometer"));
+        accFilteredMsg.setTopics((deviceName + "/filtered_accelerometer"),(deviceName + "/time_filtered_accelerometer"));
         gyroMsg.setTopics((deviceName + "/gyroscope"),(deviceName + "/time_gyroscope"));
 
         senSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
@@ -72,11 +71,15 @@ public class SendingActivity extends WearableActivity implements SensorEventList
         senAccelerometer = senSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         senSensorManager.registerListener(this, senAccelerometer , SensorManager.SENSOR_DELAY_GAME);
 
+        senFilteredAccelerometer = senSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+        senSensorManager.registerListener(this, senFilteredAccelerometer , SensorManager.SENSOR_DELAY_GAME);
+
         senGyroscope = senSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         senSensorManager.registerListener(this, senGyroscope , SensorManager.SENSOR_DELAY_GAME);
 
 
         dataAcc = findViewById(R.id.acc);
+        dataFilteredAcc = findViewById(R.id.f_acc);
         dataGyro = findViewById(R.id.gyro);
 
 
@@ -132,7 +135,7 @@ public class SendingActivity extends WearableActivity implements SensorEventList
 
     private void sender()
     {
-        if (sensorUpdate & accFlag || sensorUpdate & gyroFlag) {
+        if (sensorUpdate & accFlag || sensorUpdate & accFilteredFlag || sensorUpdate & gyroFlag) {
             sensorUpdate = false;
             syncSampleDataItem();
         }
@@ -154,6 +157,16 @@ public class SendingActivity extends WearableActivity implements SensorEventList
             }
         }
 
+         if(accFilteredFlag) {
+             long[] temp = convertLong(accFilteredMsg.getTimestamp());
+             timestamp_sent[2] = temp[temp.length-1];
+             if (temp.length > 0 ) {
+                 map.putFloatArray(accFilteredMsg.getTopic(), convertFloat(accFilteredMsg.getData()));
+                 map.putLongArray(accFilteredMsg.getTopicTime(), convertLong(accFilteredMsg.getTimestamp()));
+                 accFilteredMsg.flush();
+             }
+         }
+
         if(gyroFlag) {
             long[] temp = convertLong(gyroMsg.getTimestamp());
             timestamp_sent[0] = temp[temp.length-1];
@@ -164,7 +177,7 @@ public class SendingActivity extends WearableActivity implements SensorEventList
             }
         }
 
-        if(gyroFlag || accFlag) {
+        if(gyroFlag || accFlag || accFilteredFlag) {
             PutDataRequest request = putRequest.asPutDataRequest();
             request.setUrgent();
             Wearable.DataApi.putDataItem(mGoogleApiClient, request);
@@ -176,6 +189,7 @@ public class SendingActivity extends WearableActivity implements SensorEventList
     @Override
     public void onSensorChanged(SensorEvent sensorEvent) {
         Sensor mySensor = sensorEvent.sensor;
+
         /** If the new data is from the gyroscope display it and push it in the gyroscope data
          *  container (gyroMsg)
          */
@@ -202,6 +216,20 @@ public class SendingActivity extends WearableActivity implements SensorEventList
 
             dataAcc.setText("acc: " + last_acc[0] + " " + last_acc[1] + " " + last_acc[2]);
             accFlag = accMsg.push(last_acc, last_acc_time);
+        }
+
+        /** If the new data is from the filtered accelerometer display it and push it in the filtered accelerometer
+         *  data container (gyroFilteredAcc)
+         */
+        if (mySensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
+            last_filtered_acc[0] = ((int) (sensorEvent.values[0] * precision)) / precision;
+            last_filtered_acc[1] = ((int) (sensorEvent.values[1] * precision)) / precision;
+            last_filtered_acc[2] = ((int) (sensorEvent.values[2] * precision)) / precision;
+
+            last_filtered_acc_time = System.currentTimeMillis() + (sensorEvent.timestamp - System.nanoTime()) / 1000000L;
+
+            dataFilteredAcc.setText("f_acc: " + last_filtered_acc[0] + " " + last_filtered_acc[1] + " " + last_filtered_acc[2]);
+            accFilteredFlag = accFilteredMsg.push(last_filtered_acc, last_filtered_acc_time);
         }
 
         sender();

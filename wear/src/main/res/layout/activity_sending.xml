@@ -21,16 +21,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginLeft="10dp"
-            android:layout_marginTop="60dp"
+            android:layout_marginTop="80dp"
             android:text="@string/velocity" />
-
-        <TextView
-            android:id="@+id/acc"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginLeft="10dp"
-            android:layout_marginTop="40dp"
-            android:text="@string/acceleration" />
 
         <Button
             android:id="@+id/button3"
@@ -48,6 +40,22 @@
             android:layout_height="wrap_content"
             android:text="@string/device_name"
             android:textAlignment="center" />
+
+        <TextView
+            android:id="@+id/acc"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="10dp"
+            android:layout_marginTop="40dp"
+            android:text="@string/acceleration" />
+
+        <TextView
+            android:id="@+id/f_acc"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="10dp"
+            android:layout_marginTop="60dp"
+            android:text="@string/filtered_acceleration" />
     </FrameLayout>
 </android.support.wear.widget.BoxInsetLayout>
 
